@@ -87,6 +87,12 @@ are installed or distributed.
 The popcon data is generated on a rolling basis and seems to be covering about
 20 days to a month worth of data according to the [popcon FAQ][popcon_faq].
 
+The popcon data aggregates data from all versions of Debian (and some
+derivatives although that amount is negligible), so it doesn't map cleanly to
+a single version of Debian (or derivative). Debian popcon also does not contain
+the information from the metadata, so it still would need to be combined with
+the metadata.
+
 
 [debian_repository]:https://wiki.debian.org/DebianRepository/Format
 [debian_versions]:https://en.wikipedia.org/wiki/Debian_release_version_history
