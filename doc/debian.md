@@ -41,17 +41,57 @@ Both the `Sources.xz` and `Packages.xz` files contain a field called `Priority`
 of which the possible values are described in the [section on
 priorities][priorities] in the Debian Policy manual.
 
+These priorities have been set by the developers. An easy list of most used
+packages would be to simply get all the packages with priorities `required`,
+`important` and `standard`. However, these tend to be at most a few hundred
+packages and the packages that are labeled `optional`, `extra` or `source`
+should still be processed.
+
+An example from Ubuntu 26.04 (`main` component):
 ```
-$ xzcat Sources.xz | grep Priority | sort | uniq -c
-    121 Priority: extra
-     87 Priority: important
-   2030 Priority: optional
+$ xzcat Sources.xz | grep ^Priority | sort | uniq -c
+    106 Priority: extra
+     95 Priority: important
+   2068 Priority: optional
      50 Priority: required
-     90 Priority: standard
+     87 Priority: standard
 ```
+
+and from Debian 13.5 (`main` component, x86-64):
+```
+$ xzcat Packages.xz | grep ^Priority | sort | uniq -c
+    196 Priority: extra
+     31 Priority: important
+  68457 Priority: optional
+     33 Priority: required
+     38 Priority: standard
+```
+
+and from Debian 13.5 (`main` component):
+
+```
+$ xzcat Sources.xz | grep ^Priority | sort | uniq -c
+   9091 Priority: extra
+  15924 Priority: optional
+  12617 Priority: source
+```
+
+## Using self reported use of packages
+
+Debian has a mechanism called [Debian Popularity Contest][popcon] (or "popcon")
+where users can self report which packages are installed, used regularly, and
+updated. This gives potentially a little bit more information about which
+packages are important to users, although it doesn't change which packages
+are installed or distributed.
+
+The popcon data is generated on a rolling basis and seems to be covering about
+20 days to a month worth of data according to the [popcon FAQ][popcon_faq].
+
 
 [debian_repository]:https://wiki.debian.org/DebianRepository/Format
 [debian_versions]:https://en.wikipedia.org/wiki/Debian_release_version_history
 [ubuntu_versions]:https://en.wikipedia.org/wiki/Ubuntu_version_history
 [debian_dependencies]:https://www.debian.org/doc/debian-policy/ch-relationships.html
 [priorities]:https://www.debian.org/doc/debian-policy/ch-archive.html#s-priorities
+[popcon]:https://popcon.debian.org/
+[popcon_faq]:https://popcon.debian.org/FAQ
