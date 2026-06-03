@@ -52,9 +52,9 @@ UBUNTU_VERSIONS = {'14.04': 'trusty',
 @click.option('--distro', '-d', required=True, help='version (codename or number)')
 @click.option('--out-directory', '-o', required=True, help='Output directory',
               type=click.Path(exists=True, path_type=pathlib.Path))
-@click.option('--component', help='Distro component')
+@click.option('--component', 'filter_component', help='Distro component')
 @click.option('--verbose', '-v', is_flag=True)
-def crawl_debian_metadata(name, distro, out_directory, component, verbose):
+def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose):
     '''Download all source packages for a version of Ubuntu'''
     if name == 'debian':
         if not (distro in DEBIAN_VERSIONS or distro in DEBIAN_VERSIONS.values()):
@@ -110,16 +110,16 @@ def crawl_debian_metadata(name, distro, out_directory, component, verbose):
             if not ('Packages.xz' in path or 'Sources.xz' in path):
                 continue
 
-            comp = path.split('/')[0]
+            component = path.split('/')[0]
             if 'Packages.xz' in path:
                 architecture = path.split('/')[1].split('-')[1]
             elif 'Sources.xz' in path:
                 architecture = 'source'
 
-            if not comp in sha256:
-                sha256[comp] = {}
+            if not component in sha256:
+                sha256[component] = {}
 
-            sha256[comp][architecture] = (checksum, int(size), path)
+            sha256[component][architecture] = (checksum, int(size), path)
 
         if line.startswith('Architectures:'):
             architectures = line.strip().split()[1:]
@@ -133,50 +133,93 @@ def crawl_debian_metadata(name, distro, out_directory, component, verbose):
               file=sys.stderr)
         sys.exit(2)
 
-    if component and component not in components:
+    if filter_component and filter_component not in components:
         print(f"Invalid 'component' value, not in {components}, exiting",
               file=sys.stderr)
         sys.exit(2)
 
-    # then process all the packages for the different components and architectures
-    for comp in components:
-        if component and comp != component:
+    # Process source archives to extract all the metadata
+    source_to_binaries = {}
+    binaries_to_source = {}
+
+    # Store how often build dependencies are used in the Sources.xz files.
+    # The dependencies are the names of *binary* packages, that eventually need
+    # to be mapped back to source code. The dependencies could be from a different
+    # component, so these should be processed first. Some of the components are
+    # virtual packages (defined with 'Provides:').
+    build_depends = collections.Counter()
+
+    # Then process all the packages for the different components and architectures
+    for component in components:
+        if filter_component and component != filter_component:
             continue
 
-        # first process source archives to extract all the metadata
-        if 'source' in sha256[comp]:
-            (checksum, size, path) = sha256[comp]['source']
+        # Without source package information it is impossible
+        # to map data back to source packages
+        if not 'source' in sha256[component]:
+            continue
 
-            # download the relevant file
-            request_url = f'{base_url}/{path}'
-            request = requests.get(request_url)
+        (checksum, size, path) = sha256[component]['source']
 
-            if request.status_code != 200:
-                print(f"Cannot download '{request_url}' exiting", file=sys.stderr)
-                sys.exit(2)
+        # download the relevant file
+        request_url = f'{base_url}/{path}'
+        request = requests.get(request_url)
 
-            # then process the data
-            sources_xz = request.content
-            if len(sources_xz) != size:
-                print(f"Invalid size for '{request_url}' exiting", file=sys.stderr)
-                sys.exit(2)
+        if request.status_code != 200:
+            print(f"Cannot download '{request_url}' exiting", file=sys.stderr)
+            sys.exit(2)
 
-            # then decompress
-            try:
-                sources = lzma.decompress(sources_xz)
-            except:
-                print(f"Cannot decompress '{request_url}' exiting", file=sys.stderr)
-                sys.exit(2)
+        # Then process the sources data
+        sources_xz = request.content
+        if len(sources_xz) != size:
+            print(f"Invalid size for '{request_url}' exiting", file=sys.stderr)
+            sys.exit(2)
 
-            for line in sources.splitlines():
-                pass
+        # then decompress the retrieved data
+        try:
+            sources = lzma.decompress(sources_xz)
+        except:
+            print(f"Cannot decompress '{request_url}' exiting", file=sys.stderr)
+            sys.exit(2)
 
-        for architecture in sha256[comp]:
+        # Information about binary files can be spread across multiple lines,
+        # so some juggling is needed to properly process the lines.
+        in_binary = False
+        for line in sources.splitlines():
+            line = line.decode().strip()
+            if ':' in line:
+                in_binary = False
+            if in_binary:
+                binaries = list(filter(lambda x: x != '', map(lambda x: x.strip(), line.split(','))))
+                source_to_binaries[package_name] += binaries
+                for b in binaries:
+                    binaries_to_source[b] = package_name
+            if line.startswith('Package:'):
+                package_name = line.split(':')[1].strip()
+            elif line.startswith('Binary:'):
+                in_binary = True
+                binaries = list(filter(lambda x: x != '', map(lambda x: x.strip(), line.split(':')[1].strip().split(','))))
+
+                source_to_binaries[package_name] = binaries
+                for b in binaries:
+                    binaries_to_source[b] = package_name
+            elif line.startswith('Build-Depends:') or line.startswith('Build-Depends-Indep:') or line.startswith('Build-Depends-Arch:'):
+                depends = line.split(':', maxsplit=1)[1].split(',')
+                for d in depends:
+                    build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0]
+                    build_depends.update([build_dependency])
+
+        for architecture in sha256[component]:
             if architecture == 'source':
                 continue
-            (checksum, size, path) = sha256[comp][architecture]
+            (checksum, size, path) = sha256[component][architecture]
 
-            # download the relevant path
+            # download the relevant path and process the contents
+
+    # Pretty print the most used build dependencies.
+    for binary, count in build_depends.most_common():
+        if binary in binaries_to_source:
+            print(binary, binaries_to_source[binary])
 
 if __name__ == "__main__":
     crawl_debian_metadata()
