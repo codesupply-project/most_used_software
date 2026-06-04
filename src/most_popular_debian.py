@@ -145,9 +145,9 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
     # to be mapped back to source code. The dependencies could be from a different
     # component, so these should be processed first. Some of the components are
     # virtual packages (defined with 'Provides:').
-    build_depends = collections.Counter()
+    build_dependencies = collections.Counter()
 
-    # Then process all the packages for the different components and architectures
+    # first process the source code "architecture"
     for component in components:
         if filter_component and component != filter_component:
             continue
@@ -167,13 +167,17 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
             print(f"Cannot download '{request_url}' exiting", file=sys.stderr)
             sys.exit(2)
 
-        # Then process the sources data
+        # sanity check the retrieved data
         sources_xz = request.content
         if len(sources_xz) != size:
             print(f"Invalid size for '{request_url}' exiting", file=sys.stderr)
             sys.exit(2)
 
-        # then decompress the retrieved data
+        if hashlib.sha256(sources_xz).hexdigest() != checksum:
+            print(f"Invalid checksum for '{request_url}' exiting", file=sys.stderr)
+            sys.exit(2)
+
+        # decompress the retrieved data
         try:
             sources = lzma.decompress(sources_xz)
         except:
@@ -204,18 +208,77 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
             elif line.startswith('Build-Depends:') or line.startswith('Build-Depends-Indep:') or line.startswith('Build-Depends-Arch:'):
                 depends = line.split(':', maxsplit=1)[1].split(',')
                 for d in depends:
-                    build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0]
-                    build_depends.update([build_dependency])
+                    build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                    build_dependencies.update([build_dependency])
+
+    # Then process all the packages for the different architectures and components that are not source
+    for component in components:
+        if filter_component and component != filter_component:
+            continue
 
         for architecture in sha256[component]:
             if architecture == 'source':
                 continue
+
+            provides_to_source = {}
+            dependencies = collections.Counter()
+
             (checksum, size, path) = sha256[component][architecture]
 
             # download the relevant path and process the contents
+            request_url = f'{base_url}/{path}'
+            request = requests.get(request_url)
+
+            if request.status_code != 200:
+                print(f"Cannot download '{request_url}' skipping", file=sys.stderr)
+                continue
+
+            # sanity check the retrieved data
+            packages_xz = request.content
+            if len(packages_xz) != size:
+                print(f"Invalid size for '{request_url}' skipping", file=sys.stderr)
+                continue
+
+            if hashlib.sha256(packages_xz).hexdigest() != checksum:
+                print(f"Invalid checksum for '{request_url}' skipping", file=sys.stderr)
+                continue
+
+            # decompress the retrieved data
+            try:
+                packages = lzma.decompress(packages_xz)
+            except:
+                print(f"Cannot decompress '{request_url}' exiting", file=sys.stderr)
+                sys.exit(2)
+
+            for line in packages.splitlines():
+                line = line.decode().strip()
+                if line.startswith('Package:'):
+                    source_name = ''
+                    package_name = line.split(':')[1].strip()
+                elif line.startswith('Source:'):
+                    source_name = line.split(':')[1].split('(')[0].strip()
+                elif line.startswith('Provides:'):
+                    provides = line.split(':', maxsplit=1)[1].split(',')
+                    for p in provides:
+                        provide = p.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                        if provide not in provides_to_source:
+                            provides_to_source[provide] = set()
+                        if source_name:
+                            provides_to_source[provide].add(source_name)
+                        else:
+                            provides_to_source[provide].add(package_name)
+                elif line.startswith('Depends:') or line.startswith('Pre-Depends:'):
+                    depends = line.split(':', maxsplit=1)[1].split(',')
+                    for d in depends:
+                        # first split into alternatives
+                        dep_alts = d.split('|')
+                        for dep_alt in dep_alts:
+                            dependency = dep_alt.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                            dependencies.update([dependency])
+
 
     # Pretty print the most used build dependencies.
-    for binary, count in build_depends.most_common():
+    for binary, count in build_dependencies.most_common():
         if binary in binaries_to_source:
             print(binary, binaries_to_source[binary])
 
