@@ -7,8 +7,8 @@ in various ecosystems.
 
 Knowledge bases for proprietary scanners are taking a completionist approach,
 indexing all source code available on the Internet. This completionist "boiling
-the ocean" approach is causing knowledge bases to be very big and tools are
-suffering from getting best results.
+the ocean" approach is causing knowledge bases to be very big and preventing
+tools from getting best results.
 
 In reality, only a small portion of open source code is in wide use, as
 products are built on well known components with little to no changes to the
