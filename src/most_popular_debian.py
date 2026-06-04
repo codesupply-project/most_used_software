@@ -60,14 +60,12 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
         if not (distro in DEBIAN_VERSIONS or distro in DEBIAN_VERSIONS.values()):
             print(f'Invalid Debian \'{distro}\', exiting', file=sys.stderr)
             sys.exit(1)
-        if distro in DEBIAN_VERSIONS:
-            distro = DEBIAN_VERSIONS[distro]
+        distro = DEBIAN_VERSIONS.get(distro, distro)
     elif name == 'ubuntu':
         if not (distro in UBUNTU_VERSIONS or distro in UBUNTU_VERSIONS.values()):
             print(f'Invalid Ubuntu \'{distro}\', exiting', file=sys.stderr)
             sys.exit(1)
-        if distro in UBUNTU_VERSIONS:
-            distro = UBUNTU_VERSIONS[distro]
+        distro = UBUNTU_VERSIONS.get(distro, distro)
 
     # set the User Agent and Authorization header for each user request
     # (optional, some FTP servers don't like this)
