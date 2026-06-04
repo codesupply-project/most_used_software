@@ -114,10 +114,10 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
             elif 'Sources.xz' in path:
                 architecture = 'source'
 
-            if not component in sha256:
-                sha256[component] = {}
+            if not architecture in sha256:
+                sha256[architecture] = {}
 
-            sha256[component][architecture] = (checksum, int(size), path)
+            sha256[architecture][component] = (checksum, int(size), path)
 
         if line.startswith('Architectures:'):
             architectures = line.strip().split()[1:]
@@ -136,6 +136,10 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
               file=sys.stderr)
         sys.exit(2)
 
+    if 'source' not in sha256:
+        print("No 'source' archtitecture found, exiting", file=sys.stderr)
+        sys.exit(3)
+
     # Process source archives to extract all the metadata
     source_to_binaries = {}
     binaries_to_source = {}
@@ -146,18 +150,14 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
     # component, so these should be processed first. Some of the components are
     # virtual packages (defined with 'Provides:').
     build_dependencies = collections.Counter()
+    build_alts = set()
 
     # first process the source code "architecture"
-    for component in components:
+    for component in sha256['source']:
         if filter_component and component != filter_component:
             continue
 
-        # Without source package information it is impossible
-        # to map data back to source packages
-        if not 'source' in sha256[component]:
-            continue
-
-        (checksum, size, path) = sha256[component]['source']
+        (checksum, size, path) = sha256['source'][component]
 
         # download the relevant file
         request_url = f'{base_url}/{path}'
@@ -208,22 +208,35 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
             elif line.startswith('Build-Depends:') or line.startswith('Build-Depends-Indep:') or line.startswith('Build-Depends-Arch:'):
                 depends = line.split(':', maxsplit=1)[1].split(',')
                 for d in depends:
-                    build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
-                    build_dependencies.update([build_dependency])
+                    # split alternatives. These should be treated slightly differently
+                    # because some of these packages are possibly not even interesting
+                    # and equivalent to a NOP, in case one of the other alternatives
+                    # satisfies the dependency.
+                    if '|' in d:
+                        alts = []
+                        alt_deps = d.split('|')
+                        for a in alt_deps:
+                            build_dependency = a.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                            alts.append(build_dependency)
+                        build_alts.update([tuple(alts)])
+                    else:
+                        build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                        build_dependencies.update([build_dependency])
 
     # Then process all the packages for the different architectures and components that are not source
-    for component in components:
-        if filter_component and component != filter_component:
+    for architecture in architectures:
+        if architecture in ['all', 'source']:
             continue
 
-        for architecture in sha256[component]:
-            if architecture == 'source':
+        provides_to_source = {}
+        dependencies = collections.Counter()
+        dep_alts = set()
+
+        for component in sha256[architecture]:
+            if filter_component and component != filter_component:
                 continue
 
-            provides_to_source = {}
-            dependencies = collections.Counter()
-
-            (checksum, size, path) = sha256[component][architecture]
+            (checksum, size, path) = sha256[architecture][component]
 
             # download the relevant path and process the contents
             request_url = f'{base_url}/{path}'
@@ -270,17 +283,33 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
                 elif line.startswith('Depends:') or line.startswith('Pre-Depends:'):
                     depends = line.split(':', maxsplit=1)[1].split(',')
                     for d in depends:
-                        # first split into alternatives
-                        dep_alts = d.split('|')
-                        for dep_alt in dep_alts:
-                            dependency = dep_alt.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                        # split alternatives. These should be treated slightly differently
+                        # because some of these packages are possibly not even interesting
+                        # and equivalent to a NOP, in case one of the other alternatives
+                        # satisfies the dependency.
+                        if '|' in d:
+                            alts = []
+                            alt_deps = d.split('|')
+                            for a in alt_deps:
+                                dependency = a.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                                alts.append(dependency)
+                            dep_alts.update([tuple(alts)])
+                        else:
+                            dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
                             dependencies.update([dependency])
 
 
-    # Pretty print the most used build dependencies.
-    for binary, count in build_dependencies.most_common():
-        if binary in binaries_to_source:
-            print(binary, binaries_to_source[binary])
+        # Pretty print the most used build dependencies.
+        # These should either be in actual packages or virtual packages.
+        for binary, count in build_dependencies.most_common():
+            if binary in binaries_to_source:
+                pass
+            elif binary in provides_to_source:
+                pass
+            else:
+                # it could be that the binary is an alternative that
+                # has already been fullfilled
+                pass
 
 if __name__ == "__main__":
     crawl_debian_metadata()
