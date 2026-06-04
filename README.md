@@ -34,10 +34,10 @@ from the proprietary tools.
 ### (embedded) Linux, including Docker
 
 * Alpine Linux
-* Debian Linux and derivatives (Ubuntu)
+* [Debian Linux and derivatives (Ubuntu)](doc/debian.md)
 * Fedora Linux
 * OpenWrt
-* Yocto Project
+* OpenEmbedded & Yocto Project
 
 ### Source code repositories
 
@@ -53,3 +53,5 @@ from the proprietary tools.
 ## Methodology
 
 The methodology used differs per ecosystem.
+
+* [Debian Linux and derivatives (Ubuntu)](doc/debian.md)
