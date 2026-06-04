@@ -229,8 +229,8 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
                 archs = line.split(':')[1].strip().split()
                 new_package['architecture'] = []
                 if not set(archs).intersection(supported_architectures):
-                   skip_package = True
-                   continue
+                    skip_package = True
+                    continue
             elif line.startswith('Binary:'):
                 in_binary = True
                 binaries = list(filter(lambda x: x != '', map(lambda x: x.strip(), line.split(':')[1].strip().split(','))))
@@ -266,8 +266,40 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
                             alts.append(build_dependency)
                         build_alts.update([tuple(alts)])
                     else:
-                        build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
-                        build_dependencies.update([build_dependency])
+                        # grab the architectures and start juggling
+                        if '[' in d:
+                            dep_archs = d.split('[')[1].split(']')[0].split()
+
+                            # ignore dependencies that are not used on Linux
+                            if '!linux-any' in dep_archs:
+                                continue
+
+                            # see if the dependencies have been defined explicitly
+                            # for any of the supported architectures.
+                            arch_diff = set(dep_archs).intersection(supported_architectures)
+
+                            # if not then some of the archtitectures might have been excluded
+                            if not arch_diff:
+                                sup = copy.deepcopy(supported_architectures)
+                                for dep_arch in dep_archs:
+                                    if dep_arch.startswith('!'):
+                                        arch_remove = dep_arch[1:]
+                                        for ar in [arch_remove, f'any-{arch_remove}', f'linux-{arch_remove}', f'any-linux-{arch_remove}']:
+                                            try:
+                                                sup.remove(ar)
+                                            except ValueError:
+                                                pass
+                                arch_diff = set(dep_archs).intersection(sup)
+                                if not arch_diff:
+                                    continue
+                                build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                                build_dependencies.update([build_dependency])
+                            else:
+                                build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                                build_dependencies.update([build_dependency])
+                        else:
+                            build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                            build_dependencies.update([build_dependency])
 
     # Then process all the packages for the different architectures and components that are not source
     for architecture in architectures:
