@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import collections
+import copy
 import datetime
 import graphlib
 import hashlib
@@ -152,6 +153,17 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
     build_dependencies = collections.Counter()
     build_alts = set()
 
+    # set the supported architectures. Packages that are not
+    # part of these architectures will be ignored.
+    supported_architectures = copy.deepcopy(architectures)
+    supported_architectures.append('all')
+    supported_architectures.append('any')
+    supported_architectures.append('linux-any')
+    for a in architectures:
+        supported_architectures.append(f'any-{a}')
+        supported_architectures.append(f'linux-{a}')
+        supported_architectures.append(f'any-linux-{a}')
+
     # first process the source code "architecture"
     for component in sha256['source']:
         if filter_component and component != filter_component:
@@ -187,27 +199,61 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
         # Information about binary files can be spread across multiple lines,
         # so some juggling is needed to properly process the lines.
         in_binary = False
+
+        parsed_packages = []
+        skip_package = False
+        new_package = {}
+
         for line in sources.splitlines():
             line = line.decode().strip()
             if ':' in line:
                 in_binary = False
+
+            # add more binaries
             if in_binary:
                 binaries = list(filter(lambda x: x != '', map(lambda x: x.strip(), line.split(','))))
-                source_to_binaries[package_name] += binaries
-                for b in binaries:
-                    binaries_to_source[b] = package_name
+                new_package['binaries'] += binaries
+
             if line.startswith('Package:'):
+                if not skip_package and new_package:
+                    parsed_packages.append(new_package)
                 package_name = line.split(':')[1].strip()
+                new_package = {'name': package_name}
+                skip_package = False
+
+            if skip_package:
+                continue
+
+            # check if the architecture
+            if line.startswith('Architecture:'):
+                archs = line.split(':')[1].strip().split()
+                new_package['architecture'] = []
+                if not set(archs).intersection(supported_architectures):
+                   skip_package = True
+                   continue
             elif line.startswith('Binary:'):
                 in_binary = True
                 binaries = list(filter(lambda x: x != '', map(lambda x: x.strip(), line.split(':')[1].strip().split(','))))
 
-                source_to_binaries[package_name] = binaries
-                for b in binaries:
-                    binaries_to_source[b] = package_name
+                new_package['binaries'] = binaries
+
             elif line.startswith('Build-Depends:') or line.startswith('Build-Depends-Indep:') or line.startswith('Build-Depends-Arch:'):
                 depends = line.split(':', maxsplit=1)[1].split(',')
-                for d in depends:
+                new_package['dependencies'] = depends
+
+        if not skip_package and new_package:
+            parsed_packages.append(new_package)
+
+        for package in parsed_packages:
+            package_name = package['name']
+            binaries = package['binaries']
+
+            source_to_binaries[package_name] = binaries
+            for b in binaries:
+                binaries_to_source[b] = package_name
+
+            if 'dependencies' in package:
+                for d in package['dependencies']:
                     # split alternatives. These should be treated slightly differently
                     # because some of these packages are possibly not even interesting
                     # and equivalent to a NOP, in case one of the other alternatives
