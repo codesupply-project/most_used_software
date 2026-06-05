@@ -30,10 +30,24 @@ needs to be crawled:
    replaced with the actual architecture (for example `binary-amd64`).
 1. for each package extract the `Depends` and `Pre-Depends` fields (documented
    in the [Debian package relationship documentation][debian_dependencies]).
-1. create a graph with all the dependencies between the packages, and keep
-   some score to find the most used packages.
+1. create a graph with all the dependencies between the packages for a single
+   architecture, and keep some score to find the most used packages.
 
-Some care should be taken with regards to so called "virtual packages".
+This is not as trivial as it sounds. As some of the declared (build)
+dependencies can be so called "virtual packages" it requires some juggling of
+data and a few passes. Each package belongs to a so called "component" (`main`,
+`universe`, `restricted`, etc.) and (build) dependencies for one package can
+be part of another component.
+
+Not all dependencies are needed on all architectures, so it is best to group
+all results for all components per architecture. Filtering which dependencies
+are needed on which platforms is a bit of a hassle.
+
+Some dependencies are presented as alternatives using a `|` character in either
+the `Depends` or `Build-Depends` (or related) fields. Sometimes there are
+dependencies listed that are not present in the total set of packages. This
+isn't a problem when running the distribution, because only one of the
+alternative dependencies needs to be satisfied.
 
 ## Using declared priorities
 
