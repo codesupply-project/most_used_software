@@ -47,6 +47,52 @@ UBUNTU_VERSIONS = {'14.04': 'trusty',
                   }
 
 
+def check_dependency_architecture(architectures, dependency):
+    '''Helper method to determine if a dependency is for a supported architecture'''
+    # grab the architectures and start juggling
+    if '[' in dependency:
+        dep_archs = dependency.split('[')[1].split(']')[0].split()
+
+        # ignore dependencies that are not used on Linux
+        if '!linux-any' in dep_archs:
+            return
+
+        # see if the dependencies have been defined explicitly
+        # for any of the supported architectures.
+        arch_diff = set(dep_archs).intersection(architectures)
+
+        # if not then some of the archtitectures might have been excluded
+        if not arch_diff:
+            # first make a copy of the supported architectures
+            sup = copy.deepcopy(architectures)
+
+            # keep track of if any architectures or platforms
+            # were excluded, because only then does it make sense
+            # to compare again.
+            negated = False
+
+            for dep_arch in dep_archs:
+                if dep_arch.startswith('!'):
+                    negated = True
+                    arch_remove = dep_arch[1:]
+                    for ar in [arch_remove, f'any-{arch_remove}', f'linux-{arch_remove}', f'any-linux-{arch_remove}']:
+                        try:
+                            sup.remove(ar)
+                        except ValueError:
+                            pass
+
+            # if architectures were excluded compare the set of supported
+            # architectures to the (possibly modified) set of architectures
+            # to see if the package needs to be ignored.
+            if negated:
+                arch_diff = set(architectures).intersection(sup)
+            if not arch_diff:
+                return
+
+    build_dependency = dependency.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+    return build_dependency
+
+
 @click.command(short_help='Crawl metadata for a version of Debian (derivative)')
 @click.option('--name', '-n', required=True, help='Debian (derivative) name',
               type=click.Choice(['debian', 'ubuntu'], case_sensitive=False))
@@ -262,43 +308,13 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
                         alts = []
                         alt_deps = d.split('|')
                         for a in alt_deps:
-                            build_dependency = a.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                            build_dependency = check_dependency_architecture(supported_architectures, a)
                             alts.append(build_dependency)
                         build_alts.update([tuple(alts)])
                     else:
                         # grab the architectures and start juggling
-                        if '[' in d:
-                            dep_archs = d.split('[')[1].split(']')[0].split()
-
-                            # ignore dependencies that are not used on Linux
-                            if '!linux-any' in dep_archs:
-                                continue
-
-                            # see if the dependencies have been defined explicitly
-                            # for any of the supported architectures.
-                            arch_diff = set(dep_archs).intersection(supported_architectures)
-
-                            # if not then some of the archtitectures might have been excluded
-                            if not arch_diff:
-                                sup = copy.deepcopy(supported_architectures)
-                                for dep_arch in dep_archs:
-                                    if dep_arch.startswith('!'):
-                                        arch_remove = dep_arch[1:]
-                                        for ar in [arch_remove, f'any-{arch_remove}', f'linux-{arch_remove}', f'any-linux-{arch_remove}']:
-                                            try:
-                                                sup.remove(ar)
-                                            except ValueError:
-                                                pass
-                                arch_diff = set(dep_archs).intersection(sup)
-                                if not arch_diff:
-                                    continue
-                                build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
-                                build_dependencies.update([build_dependency])
-                            else:
-                                build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
-                                build_dependencies.update([build_dependency])
-                        else:
-                            build_dependency = d.strip().split()[0].rsplit(':', maxsplit=1)[0].strip()
+                        build_dependency = check_dependency_architecture(supported_architectures, d)
+                        if build_dependency:
                             build_dependencies.update([build_dependency])
 
     # Then process all the packages for the different architectures and components that are not source
