@@ -438,7 +438,10 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, cache, 
                 pass
             else:
                 # it could be that the binary is an alternative that
-                # has already been fullfilled
+                # has already been fullfilled. Fullfilling the
+                # alternative dependencies is a bit of a challenge
+                # as there could be multiple valid dependency trees.
+                # However, in practice this is probably not much of a problem.
                 pass
 
 if __name__ == "__main__":
