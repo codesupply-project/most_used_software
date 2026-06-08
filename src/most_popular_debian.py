@@ -100,8 +100,9 @@ def check_dependency_architecture(architectures, dependency):
 @click.option('--out-directory', '-o', required=True, help='Output directory',
               type=click.Path(exists=True, path_type=pathlib.Path))
 @click.option('--component', 'filter_component', help='Distro component')
+@click.option('--cache', default=False, is_flag=True, help='Use cached results')
 @click.option('--verbose', '-v', is_flag=True)
-def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose):
+def crawl_debian_metadata(name, distro, out_directory, filter_component, cache, verbose):
     '''Download all source packages for a version of Ubuntu'''
     if name == 'debian':
         if not (distro in DEBIAN_VERSIONS or distro in DEBIAN_VERSIONS.values()):
@@ -126,19 +127,35 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
     elif name == 'ubuntu':
         base_url = f'{UBUNTU_BASE_URLS[0]}/dists/{distro}'
 
-    request_url = f'{base_url}/InRelease'
-    request = requests.get(request_url)
+    cache_directory = out_directory / distro
+    inrelease_file = cache_directory / 'InRelease'
 
-    # now first check the headers to see if it is OK to do more requests
-    if request.status_code != 200:
-        print("Cannot download 'InRelease' file, exiting", file=sys.stderr)
-        sys.exit(2)
+    if not (cache and inrelease_file.exists()):
+        request_url = f'{base_url}/InRelease'
+        request = requests.get(request_url)
+
+        # now first check the headers to see if it is OK to do more requests
+        if request.status_code != 200:
+            print("Cannot download 'InRelease' file, exiting", file=sys.stderr)
+            sys.exit(2)
+
+        inrelease = request.text
+
+        # create the out directory
+        cache_directory.mkdir(exist_ok=True, parents=True)
+
+        # write the InRelease file
+        with open(cache_directory / 'InRelease', 'w') as inrelease_file:
+            inrelease_file.write(inrelease)
+
+    else:
+        with open(inrelease_file, 'r') as in_file:
+            inrelease = in_file.read()
 
     architectures = []
     components = []
     sha256 = {}
 
-    inrelease = request.text
     in_sha256 = False
     for line in inrelease.splitlines():
         if line.startswith('-----BEGIN PGP SIGNATURE-----'):
@@ -218,29 +235,39 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
         (checksum, size, path) = sha256['source'][component]
 
         # download the relevant file
-        request_url = f'{base_url}/{path}'
-        request = requests.get(request_url)
+        component_file = cache_directory / path
+        if not (cache and component_file.exists()):
+            request_url = f'{base_url}/{path}'
+            request = requests.get(request_url)
 
-        if request.status_code != 200:
-            print(f"Cannot download '{request_url}' exiting", file=sys.stderr)
-            sys.exit(2)
+            if request.status_code != 200:
+                print(f"Cannot download '{request_url}' exiting", file=sys.stderr)
+                sys.exit(2)
 
-        # sanity check the retrieved data
-        sources_xz = request.content
-        if len(sources_xz) != size:
-            print(f"Invalid size for '{request_url}' exiting", file=sys.stderr)
-            sys.exit(2)
+            # sanity check the retrieved data
+            sources_xz = request.content
+            if len(sources_xz) != size:
+                print(f"Invalid size for '{request_url}' exiting", file=sys.stderr)
+                sys.exit(2)
 
-        if hashlib.sha256(sources_xz).hexdigest() != checksum:
-            print(f"Invalid checksum for '{request_url}' exiting", file=sys.stderr)
-            sys.exit(2)
+            if hashlib.sha256(sources_xz).hexdigest() != checksum:
+                print(f"Invalid checksum for '{request_url}' exiting", file=sys.stderr)
+                sys.exit(2)
 
-        # decompress the retrieved data
-        try:
-            sources = lzma.decompress(sources_xz)
-        except:
-            print(f"Cannot decompress '{request_url}' exiting", file=sys.stderr)
-            sys.exit(2)
+            # decompress the retrieved data
+            try:
+                sources = lzma.decompress(sources_xz)
+            except:
+                print(f"Cannot decompress '{request_url}' exiting", file=sys.stderr)
+                sys.exit(2)
+
+            component_file.parent.mkdir(exist_ok=True, parents=True)
+
+            with open(component_file, 'wb') as comp_file:
+                comp_file.write(sources_xz)
+        else:
+            with open(component_file, 'rb') as comp_file:
+                sources = lzma.decompress(comp_file.read())
 
         # Information about binary files can be spread across multiple lines,
         # so some juggling is needed to properly process the lines.
@@ -333,29 +360,38 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, verbose
             (checksum, size, path) = sha256[architecture][component]
 
             # download the relevant path and process the contents
-            request_url = f'{base_url}/{path}'
-            request = requests.get(request_url)
+            component_file = cache_directory / path
+            if not (cache and component_file.exists()):
+                request_url = f'{base_url}/{path}'
+                request = requests.get(request_url)
 
-            if request.status_code != 200:
-                print(f"Cannot download '{request_url}' skipping", file=sys.stderr)
-                continue
+                if request.status_code != 200:
+                    print(f"Cannot download '{request_url}' skipping", file=sys.stderr)
+                    continue
 
-            # sanity check the retrieved data
-            packages_xz = request.content
-            if len(packages_xz) != size:
-                print(f"Invalid size for '{request_url}' skipping", file=sys.stderr)
-                continue
+                # sanity check the retrieved data
+                packages_xz = request.content
+                if len(packages_xz) != size:
+                    print(f"Invalid size for '{request_url}' skipping", file=sys.stderr)
+                    continue
 
-            if hashlib.sha256(packages_xz).hexdigest() != checksum:
-                print(f"Invalid checksum for '{request_url}' skipping", file=sys.stderr)
-                continue
+                if hashlib.sha256(packages_xz).hexdigest() != checksum:
+                    print(f"Invalid checksum for '{request_url}' skipping", file=sys.stderr)
+                    continue
 
-            # decompress the retrieved data
-            try:
-                packages = lzma.decompress(packages_xz)
-            except:
-                print(f"Cannot decompress '{request_url}' exiting", file=sys.stderr)
-                sys.exit(2)
+                # decompress the retrieved data
+                try:
+                    packages = lzma.decompress(packages_xz)
+                except:
+                    print(f"Cannot decompress '{request_url}' exiting", file=sys.stderr)
+                    sys.exit(2)
+                component_file.parent.mkdir(exist_ok=True, parents=True)
+
+                with open(component_file, 'wb') as comp_file:
+                    comp_file.write(packages_xz)
+            else:
+                with open(component_file, 'rb') as comp_file:
+                    packages = lzma.decompress(comp_file.read())
 
             for line in packages.splitlines():
                 line = line.decode().strip()
