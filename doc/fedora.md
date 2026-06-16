@@ -126,9 +126,12 @@ clarity):
   </group>
 ```
 
-These packages are likely a good candidate for "most used packages".
+These packages are likely a good candidate for "most used packages". It should
+be noted that not every version of Fedora might have these groups defined.
 
-Another metric would be to look at the `packagereq` element:
+Another metric would be to look at the `packagereq` element which the Fedora
+developers use to flag packages that they think are important in for groups of
+packages.
 
 ```
 $ zstdcat ca18d598b3f6c1d2f998eb3f5f368ebfc19892e20a294b562073e61c566526b4-comps-Everything.x86_64.xml.zst | grep packagereq | cut -f 1 -d '>' | sort | uniq -c | sort -n
@@ -152,6 +155,7 @@ $ zstdcat ca18d598b3f6c1d2f998eb3f5f368ebfc19892e20a294b562073e61c566526b4-comps
    1723       <packagereq type="optional"
 ```
 
-The packages labeled `mandatory` are likely good candidates.
+The packages labeled `mandatory` are likely good candidates to be considered
+"most used".
 
 [critical_path]:https://fedoraproject.org/wiki/Critical_path_package
