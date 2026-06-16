@@ -35,7 +35,7 @@ from the proprietary tools.
 
 * Alpine Linux
 * [Debian Linux and derivatives (Ubuntu)](doc/debian.md)
-* Fedora Linux
+* [Fedora Linux](doc/fedora.md)
 * OpenWrt
 * OpenEmbedded & Yocto Project
 
@@ -55,3 +55,4 @@ from the proprietary tools.
 The methodology used differs per ecosystem.
 
 * [Debian Linux and derivatives (Ubuntu)](doc/debian.md)
+* [Fedora Linux](doc/fedora.md)
