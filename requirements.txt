@@ -1,3 +1,4 @@
 click
 packageurl-python
 requests
+zstandard

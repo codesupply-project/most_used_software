@@ -9,6 +9,7 @@ let
     click
     packageurl-python
     requests
+    zstandard
   ]);
     
 in
