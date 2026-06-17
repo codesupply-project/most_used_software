@@ -1,4 +1,5 @@
 click
+defusedxml
 packageurl-python
 requests
 zstandard
