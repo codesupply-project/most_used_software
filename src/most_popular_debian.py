@@ -145,8 +145,8 @@ def crawl_debian_metadata(name, distro, out_directory, filter_component, cache, 
         cache_directory.mkdir(exist_ok=True, parents=True)
 
         # write the InRelease file
-        with open(cache_directory / 'InRelease', 'w') as inrelease_file:
-            inrelease_file.write(inrelease)
+        with open(cache_directory / 'InRelease', 'w') as out_file:
+            out_file.write(inrelease)
 
     else:
         with open(inrelease_file, 'r') as in_file:
