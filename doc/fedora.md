@@ -27,7 +27,9 @@ The `primary` metadata file contains package information (license,
 dependencies needed and provided, and so on). The `filelists` metadata file
 contains the files in either the source code archive (in case of a source RPM)
 or the files in the binary (in case of a regular RPM). `other` contains change
-logs.
+logs. This information could potentially be interesting (for example for
+finding CVE references), but not for finding the most used open source
+packages.
 
 The binary distributions contain an extra compressed XML file referred to as
 the "comps" file which contains extra information, such as categories. This
