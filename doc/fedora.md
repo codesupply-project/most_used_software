@@ -54,6 +54,36 @@ and source) that needs to be crawled:
    package names
 1. create a dependency graph to find the most used open source package.
 
+There is a lot of data in the `primary` file. For determining the most used
+software only a few fields are needed:
+
+1. `name`: name of the package. Some deduplication might be needed, for example
+   for `x86_64` because the list might also contain the `i686` packages and
+   this difference is not relevant.
+1. `url`: for reporting. Note: not every package has this field
+1. `format/rpm:sourcerpm`: the associated source RPM, useful for deduplication,
+   as the result of finding the most used software is a list of source code
+   packages.
+1. `format/rpm:provides` and `format/rpm:requires` for dependency analysis
+
+The `url` field is unfortunately not very well suited for deduplication. In
+Fedora 44 the top 10 of most used URLs for the `x86_64` architecture
+(`Everything` edition) is as follows:
+
+| Count | URL |
+|------|------|
+| 4745 | http://tug.org/texlive/ |
+| 1469 | https://haskell.org/ghc/ |
+| 320 | http://llvm.org |
+| 317 | https://notofonts.github.io/ |
+| 303 | http://www.qt.io |
+| 238 | http://www.gnu.org/software/glibc/ |
+| 229 | https://github.com/gridcf/gct/ |
+| 222 | https://crates.io/crates/nix |
+| 197 | http://gcc.gnu.org |
+| 192 | http://www.libreoffice.org/ |
+
+
 ## Using groups defined in the comps file
 
 Packages are grouped together and can be installed (or managed) together. There
