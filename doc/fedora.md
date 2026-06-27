@@ -57,14 +57,14 @@ and source) that needs to be crawled:
 There is a lot of data in the `primary` file. For determining the most used
 software only a few fields are needed:
 
-1. `name`: name of the package. Some deduplication might be needed, for example
+1. `name` - name of the package. Some deduplication might be needed, for example
    for `x86_64` because the list might also contain the `i686` packages and
    this difference is not relevant.
-1. `url`: for reporting. Note: not every package has this field
-1. `format/rpm:sourcerpm`: the associated source RPM, useful for deduplication,
+1. `url` - for reporting. Note: not every package has this field.
+1. `format/rpm:sourcerpm` - the associated source RPM, useful for deduplication,
    as the result of finding the most used software is a list of source code
    packages.
-1. `format/rpm:provides` and `format/rpm:requires` for dependency analysis
+1. `format/rpm:provides` and `format/rpm:requires` for dependency analysis.
 
 The `url` field is unfortunately not very well suited for deduplication. In
 Fedora 44 the top 10 of most used URLs for the `x86_64` architecture
