@@ -63,7 +63,7 @@ software only a few fields are needed:
 1. `url` - for reporting. Note: not every package has this field.
 1. `format/rpm:sourcerpm` - the associated source RPM, useful for deduplication,
    as the result of finding the most used software is a list of source code
-   packages.
+   packages (not used in the `source` "architecture").
 1. `format/rpm:provides` and `format/rpm:requires` for dependency analysis.
 
 The `url` field is unfortunately not very well suited for deduplication. In
@@ -83,6 +83,23 @@ Fedora 44 the top 10 of most used URLs for the `x86_64` architecture
 | 197 | http://gcc.gnu.org |
 | 192 | http://www.libreoffice.org/ |
 
+When processing the `source` "architecture" (for build dependencies) not all
+dependencies can be fully resolved.
+
+For example, some packages have the following `requires`:
+
+```
+    <rpm:requires>
+      <rpm:entry name="/usr/bin/appstream-util"/>
+...
+    </rpm:requires>
+```
+
+but this particular file cannot be found as a `provides`. This makes sense, as
+it is a binary dependency and not a source package. This means that the
+`source` architecture cannot be fully processed in isolation, but always needs
+the information from another architecture (for example `x86_64`) to be able to
+determine and resolve the build dependencies.
 
 ## Using groups defined in the comps file
 
