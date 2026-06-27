@@ -9,8 +9,8 @@ packages inside Fedora) there could be different locations.
 In recent versions of Fedora source code packages can only be found in the
 directories `Everything` and `Server`, for example:
 
-<https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/42/Everything/source/tree/repodata/>
-<https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/42/Server/source/tree/repodata/>
+* <https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/42/Everything/source/tree/repodata/>
+* <https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/42/Server/source/tree/repodata/>
 
 The items in the `repomd.xml` file point to the actual metadata files, which
 are offered in two formats: sqlite, and compressed XML (Zstandard and zchunk
