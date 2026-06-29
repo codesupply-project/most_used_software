@@ -101,6 +101,24 @@ it is a binary dependency and not a source package. This means that the
 the information from another architecture (for example `x86_64`) to be able to
 determine and resolve the build dependencies.
 
+For the other architectures it *should* be possible to process all packages in
+full isolation (where the collection of packages covers all dependencies), but
+this is not always the case. As an example, in Fedora 44 the package `krecipes`
+has a `requires` that says:
+
+```
+...
+<rpm:entry name="libQtWebKit.so.4()(64bit)"/>
+...
+```
+
+but this particular file cannot be found in any of the packages (even when
+looking at the "filelists" file). It seems that [this was a
+bug][fails_to_install_f44] because a package containing the library was reitred
+and dependencies were not properly checked. The bug was [subsequently
+fixed][qt4_readded]. In this case to get a more complete view of the actual
+dependencies the update files should also be processed.
+
 ## Using groups defined in the comps file
 
 Packages are grouped together and can be installed (or managed) together. There
@@ -208,3 +226,5 @@ The packages labeled `mandatory` are likely good candidates to be considered
 "most used".
 
 [critical_path]:https://fedoraproject.org/wiki/Critical_path_package
+[fails_to_install_f44]:https://bugzilla.redhat.com/show_bug.cgi?id=2398098
+[qt4_readded]:https://bodhi.fedoraproject.org/updates/FEDORA-2025-08d39ff8ce
