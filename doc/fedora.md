@@ -119,6 +119,10 @@ and dependencies were not properly checked. The bug was [subsequently
 fixed][qt4_readded]. In this case to get a more complete view of the actual
 dependencies the update files should also be processed.
 
+Other packages are using obsoleted packages that are no longer available in the
+distribution. An example in Fedora 44 is `sigul-bridge` that uses
+`python3-fedora` which was obsoleted.
+
 ## Using groups defined in the comps file
 
 Packages are grouped together and can be installed (or managed) together. There
