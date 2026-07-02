@@ -12,6 +12,7 @@ import gzip
 import hashlib
 import io
 import pathlib
+import re
 import sys
 import xml.dom
 
@@ -23,6 +24,11 @@ import packageurl
 import requests
 import zstandard
 
+CRATE_RE = re.compile(r'(crate\([\w\d\-/_]+\))')
+PERL_RE = re.compile(r'(perl\([\w\d:\-/_]+\)) if httpd')
+PHP_COMPOSER_RE = re.compile(r'(php-composer\([\w\d\-/_]+\))')
+PYTHON_RE = re.compile(r'(python[\w\d\.]+\([\w\d\-/_]+\))')
+RUBYGEM_RE = re.compile(r'(rubygem\([\w\d\-/_]+\))')
 
 # supported fedora versions tend to be on mirrors,
 # after which they are moved to the Fedora archive.
@@ -240,6 +246,14 @@ def crawl_fedora_metadata(distro, out_directory, edition, architecture, cache, v
         if elem_type == 'primary':
             packages = []
             package_names = set()
+
+            # store which package provides what. It is probably faster to walk
+            # through the XML data twice
+            provides_to_package = {}
+            file_to_package = {}
+            package_to_requires = {}
+            obsoleted = set()
+
             for _, element in et.iterparse(elem_xml):
                 if element.tag == '{http://linux.duke.edu/metadata/common}package':
                     if element.get('type') != 'rpm':
@@ -266,6 +280,27 @@ def crawl_fedora_metadata(distro, out_directory, edition, architecture, cache, v
                                         source_pkg = format_child.text.rsplit('-', maxsplit=2)[0]
                                     else:
                                         source_pkg = package['name']
+                                    package['source'] = source_pkg
+                                elif format_child.tag == '{http://linux.duke.edu/metadata/rpm}obsoletes':
+                                    for obsolete in format_child:
+                                        obsolete_name = obsolete.attrib['name']
+                                        obsoleted.add(obsolete_name)
+                                elif format_child.tag == '{http://linux.duke.edu/metadata/rpm}provides':
+                                    for provides in format_child:
+                                        provides_name = provides.attrib['name']
+                                        if provides_name not in provides_to_package:
+                                            provides_to_package[provides_name] = set()
+                                        provides_to_package[provides_name].add(package['source'])
+                                elif format_child.tag == '{http://linux.duke.edu/metadata/rpm}requires':
+                                    package_to_requires[package['name']] = []
+                                    for requires in format_child:
+                                        requires_name = requires.attrib['name']
+                                        package_to_requires[package['name']].append(requires_name)
+                                elif format_child.tag == '{http://linux.duke.edu/metadata/common}file':
+                                    file_name = format_child.text
+                                    if file_name not in file_to_package:
+                                        file_to_package[file_name] = set()
+                                    file_to_package[file_name].add(package['source'])
 
                     # find duplicates, for example for different architectures (x86-64, i686)
                     if package['name'] in package_names:
@@ -278,6 +313,67 @@ def crawl_fedora_metadata(distro, out_directory, edition, architecture, cache, v
 
                     # cleanup to reduce memory usage
                     element.clear()
+
+            # then resolve the package requirements
+            for name in package_to_requires:
+                for require in package_to_requires[name]:
+                    # first cleanup for rust crates, as some requires include
+                    # version ranges that need to be satisfied, for example:
+                    #
+                    #  (crate(syn/full) >= 2.0.64 with crate(syn/full) < 3.0.0~)
+                    #
+                    # As (some) integrity is assumed in the "primary" file it is safe
+                    # to just replace it (in the example) with "crate(syn/full)" but
+                    # that assumes that there is only one crate in the "requires" expression.
+                    #
+                    # Also do this for php-composer, python and rubygem entries
+                    # and something similar for perl
+                    if require.startswith('(crate('):
+                        required_crates = set(CRATE_RE.findall(require))
+                        if len(required_crates) == 1:
+                            require = required_crates.pop()
+                    elif require.startswith('(perl('):
+                        required_perl = set(PERL_RE.findall(require))
+                        if len(required_perl) == 1:
+                            require = required_perl.pop()
+                    elif require.startswith('(php-composer('):
+                        required_php = set(PHP_COMPOSER_RE.findall(require))
+                        if len(required_php) == 1:
+                            require = required_php.pop()
+                    elif require.startswith('(python'):
+                        required_python = set(PYTHON_RE.findall(require))
+                        if len(required_python) == 1:
+                            require = required_python.pop()
+                    elif require.startswith('(rubygem('):
+                        required_ruby = set(RUBYGEM_RE.findall(require))
+                        if len(required_ruby) == 1:
+                            require = required_ruby.pop()
+
+                    if ' if ' in require or ' with ' in require:
+                        if ' if ' in require:
+                            if require.startswith('('):
+                                res = re.match(r'\(([\w\d\(\)\.\-]+) if ', require)
+                                if res:
+                                    require = res.groups()[0]
+                        if not res and ' with ' in require:
+                            if require.startswith('('):
+                                res = re.match(r'\(([\w\d\(\)\.\-]+) with ', require)
+                                if res:
+                                    require = res.groups()[0]
+
+                    # TODO: deduplicate packages based on URL, if possible
+                    # example (Fedora 44):
+                    # 'rust-nix0.28', 'rust-nix0.27', 'rust-nix0.30', 'rust-nix0.26', 'rust-nix0.29', 'rust-nix'
+                    # all provide the same crates
+                    if require in provides_to_package:
+                        found_package = provides_to_package[require]
+                    elif require in file_to_package:
+                        found_package = file_to_package[require]
+                    elif require in obsoleted:
+                        # the package has been obsoleted, so it can be skipped.
+                        pass
+                    else:
+                        pass
 
         elif elem_type == 'group':
             pass
