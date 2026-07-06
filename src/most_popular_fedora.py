@@ -59,6 +59,53 @@ VALID_EDITIONS = ['COSMIC-Atomic',
                   'Workstation',
                  ]
 
+def cleanup_require(require):
+    # cleanup for packages, as some values of 'require' include
+    # version ranges that need to be satisfied, for example:
+    #
+    #  (crate(syn/full) >= 2.0.64 with crate(syn/full) < 3.0.0~)
+    #
+    # As (some) integrity is assumed in the "primary" file it is safe
+    # to just replace it (in the example) with "crate(syn/full)" but
+    # that assumes that there is only one crate in the "requires" expression.
+    #
+    # Do this for rust crates, php-composer, python and rubygem entries
+    # and something similar for perl.
+    if require.startswith('(crate('):
+        required_crates = set(CRATE_RE.findall(require))
+        if len(required_crates) == 1:
+            require = required_crates.pop()
+    elif require.startswith('(perl('):
+        required_perl = set(PERL_RE.findall(require))
+        if len(required_perl) == 1:
+            require = required_perl.pop()
+    elif require.startswith('(php-composer('):
+        required_php = set(PHP_COMPOSER_RE.findall(require))
+        if len(required_php) == 1:
+            require = required_php.pop()
+    elif require.startswith('(python'):
+        required_python = set(PYTHON_RE.findall(require))
+        if len(required_python) == 1:
+            require = required_python.pop()
+    elif require.startswith('(rubygem('):
+        required_ruby = set(RUBYGEM_RE.findall(require))
+        if len(required_ruby) == 1:
+            require = required_ruby.pop()
+
+    if ' if ' in require or ' with ' in require:
+        res = None
+        if ' if ' in require:
+            if require.startswith('('):
+                res = re.match(r'\(([\w\d\(\)\.\-]+) if ', require)
+                if res:
+                    require = res.groups()[0]
+        if not res and ' with ' in require:
+            if require.startswith('('):
+                res = re.match(r'\(([\w\d\(\)\.\-]+) with ', require)
+                if res:
+                    require = res.groups()[0]
+    return require
+
 
 @click.command(short_help='Crawl metadata for a version of Fedora')
 @click.option('--distro', '-d', required=True, help='version number', type=click.INT)
@@ -317,50 +364,7 @@ def crawl_fedora_metadata(distro, out_directory, edition, architecture, cache, v
             # then resolve the package requirements
             for name in package_to_requires:
                 for require in package_to_requires[name]:
-                    # first cleanup for rust crates, as some requires include
-                    # version ranges that need to be satisfied, for example:
-                    #
-                    #  (crate(syn/full) >= 2.0.64 with crate(syn/full) < 3.0.0~)
-                    #
-                    # As (some) integrity is assumed in the "primary" file it is safe
-                    # to just replace it (in the example) with "crate(syn/full)" but
-                    # that assumes that there is only one crate in the "requires" expression.
-                    #
-                    # Also do this for php-composer, python and rubygem entries
-                    # and something similar for perl
-                    if require.startswith('(crate('):
-                        required_crates = set(CRATE_RE.findall(require))
-                        if len(required_crates) == 1:
-                            require = required_crates.pop()
-                    elif require.startswith('(perl('):
-                        required_perl = set(PERL_RE.findall(require))
-                        if len(required_perl) == 1:
-                            require = required_perl.pop()
-                    elif require.startswith('(php-composer('):
-                        required_php = set(PHP_COMPOSER_RE.findall(require))
-                        if len(required_php) == 1:
-                            require = required_php.pop()
-                    elif require.startswith('(python'):
-                        required_python = set(PYTHON_RE.findall(require))
-                        if len(required_python) == 1:
-                            require = required_python.pop()
-                    elif require.startswith('(rubygem('):
-                        required_ruby = set(RUBYGEM_RE.findall(require))
-                        if len(required_ruby) == 1:
-                            require = required_ruby.pop()
-
-                    if ' if ' in require or ' with ' in require:
-                        if ' if ' in require:
-                            if require.startswith('('):
-                                res = re.match(r'\(([\w\d\(\)\.\-]+) if ', require)
-                                if res:
-                                    require = res.groups()[0]
-                        if not res and ' with ' in require:
-                            if require.startswith('('):
-                                res = re.match(r'\(([\w\d\(\)\.\-]+) with ', require)
-                                if res:
-                                    require = res.groups()[0]
-
+                    require = cleanup_require(require)
                     # TODO: deduplicate packages based on URL, if possible
                     # example (Fedora 44):
                     # 'rust-nix0.28', 'rust-nix0.27', 'rust-nix0.30', 'rust-nix0.26', 'rust-nix0.29', 'rust-nix'
