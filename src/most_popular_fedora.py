@@ -83,7 +83,7 @@ def cleanup_require(require):
         required_php = set(PHP_COMPOSER_RE.findall(require))
         if len(required_php) == 1:
             require = required_php.pop()
-    elif require.startswith('(python'):
+    elif require.startswith('(python') or require.startswith('((python'):
         required_python = set(PYTHON_RE.findall(require))
         if len(required_python) == 1:
             require = required_python.pop()
@@ -365,6 +365,7 @@ def crawl_fedora_metadata(distro, out_directory, edition, architecture, cache, v
             for name in package_to_requires:
                 for require in package_to_requires[name]:
                     require = cleanup_require(require)
+
                     # TODO: deduplicate packages based on URL, if possible
                     # example (Fedora 44):
                     # 'rust-nix0.28', 'rust-nix0.27', 'rust-nix0.30', 'rust-nix0.26', 'rust-nix0.29', 'rust-nix'
