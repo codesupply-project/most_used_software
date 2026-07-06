@@ -27,7 +27,7 @@ import zstandard
 CRATE_RE = re.compile(r'(crate\([\w\d\-/_]+\))')
 PERL_RE = re.compile(r'(perl\([\w\d:\-/_]+\)) if httpd')
 PHP_COMPOSER_RE = re.compile(r'(php-composer\([\w\d\-/_]+\))')
-PYTHON_RE = re.compile(r'(python[\w\d\.\[\]]+\([\w\d\-/_]+\))')
+PYTHON_RE = re.compile(r'(python[\w\d\.]+\([\w\d\-/_[[\]]+\))')
 RUBYGEM_RE = re.compile(r'(rubygem\([\w\d\-/_]+\))')
 
 # supported fedora versions tend to be on mirrors,
