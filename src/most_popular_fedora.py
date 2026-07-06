@@ -378,6 +378,7 @@ def crawl_fedora_metadata(distro, out_directory, edition, architecture, cache, v
                         # the package has been obsoleted, so it can be skipped.
                         pass
                     else:
+                        # the requirement cannot (currently) be resolved
                         pass
 
         elif elem_type == 'group':
