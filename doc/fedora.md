@@ -123,6 +123,35 @@ Other packages are using obsoleted packages that are no longer available in the
 distribution. An example in Fedora 44 is `sigul-bridge` that uses
 `python3-fedora` which was obsoleted.
 
+### golang
+
+There are several packages in the
+
+For example:
+
+```
+<rpm:entry name="golang(go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp)"/>
+```
+
+When looking at `primary` file and searching for this particular dependency a
+few bundled copies can be found (note: the second result is actually the
+`rpm:requires` entry, not `rpm:provdes`):
+
+```
+$ grep 'golang(go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp)' c48e47563bbf65b996c95caf4a608223f982c314cab637e6ab87dd1df67b9d26-primary.xml
+      <rpm:entry name="bundled(golang(go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp))" flags="EQ" epoch="0" ver="0.8.0"/>
+      <rpm:entry name="golang(go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp)"/>
+      <rpm:entry name="bundled(golang(go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp))" flags="EQ" epoch="0" ver="0.8.0"/>
+      <rpm:entry name="bundled(golang(go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp))" flags="EQ" epoch="0" ver="0.8.0"/>
+      <rpm:entry name="bundled(golang(go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp))" flags="EQ" epoch="0" ver="0.14.0"/>
+```
+
+Bundled libraries in Go are local, while the `rpm:requires` entry seems to
+suggest that a system library is needed, not a bundled library. Since there is
+no version number in the `rpm:requires` that could hint at which package could
+fullfill the dependency it remains unclear where this dependency should come
+from.
+
 ## Using groups defined in the comps file
 
 Packages are grouped together and can be installed (or managed) together. There
