@@ -125,9 +125,11 @@ distribution. An example in Fedora 44 is `sigul-bridge` that uses
 
 ### golang
 
-There are several packages in the
+There are several packages in the Golang ecosystem where dependencies do not
+seem to have been fullfilled.
 
-For example:
+For example in Fedora 44 (`Everyhing`, `x86_64`) there is a package with the
+following `rpm:requires`:
 
 ```
 <rpm:entry name="golang(go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp)"/>
