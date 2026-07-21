@@ -83,6 +83,8 @@ Fedora 44 the top 10 of most used URLs for the `x86_64` architecture
 | 197 | http://gcc.gnu.org |
 | 192 | http://www.libreoffice.org/ |
 
+### Challenge: unresolved dependencies
+
 When processing the `source` "architecture" (for build dependencies) not all
 dependencies can be fully resolved.
 
@@ -119,11 +121,16 @@ and dependencies were not properly checked. The bug was [subsequently
 fixed][qt4_readded]. In this case to get a more complete view of the actual
 dependencies the update files should also be processed.
 
+There are more packages in the stock Fedora 44. Another example is "classified
+ads" where the package was broken in [Fedora 42][classified_ads_fail_42],
+[didn't work in Fedora 43][classified_ads_fail_43] and was
+[fixed in Fedora 44][classified_ads_fail_44].
+
 Other packages are using obsoleted packages that are no longer available in the
 distribution. An example in Fedora 44 is `sigul-bridge` that uses
 `python3-fedora` which was obsoleted.
 
-### golang
+#### Unresolved dependencies: golang
 
 There are several packages in the Golang ecosystem where dependencies do not
 seem to have been fullfilled.
@@ -262,4 +269,7 @@ The packages labeled `mandatory` are likely good candidates to be considered
 
 [critical_path]:https://fedoraproject.org/wiki/Critical_path_package
 [fails_to_install_f44]:https://bugzilla.redhat.com/show_bug.cgi?id=2398098
+[classified_ads_fail_42]:https://bugzilla.redhat.com/show_bug.cgi?id=2342767
+[classified_ads_fail_43]:https://bugzilla.redhat.com/show_bug.cgi?id=2463738
+[classified_ads_fail_44]:https://bugzilla.redhat.com/show_bug.cgi?id=2433912
 [qt4_readded]:https://bodhi.fedoraproject.org/updates/FEDORA-2025-08d39ff8ce
