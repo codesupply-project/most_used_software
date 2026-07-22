@@ -161,7 +161,7 @@ no version number in the `rpm:requires` that could hint at which package could
 fullfill the dependency it remains unclear where this dependency should come
 from.
 
-## Using groups defined in the comps file
+## Using groups, categories and environments defined in the comps file
 
 Packages are grouped together and can be installed (or managed) together. There
 are many groups defined in the comps file, for example, in Fedora 44 there are
@@ -266,6 +266,30 @@ $ zstdcat ca18d598b3f6c1d2f998eb3f5f368ebfc19892e20a294b562073e61c566526b4-comps
 
 The packages labeled `mandatory` are likely good candidates to be considered
 "most used".
+
+Groups of packaged are grouped together in categories and environments, for
+example for XFCE (edited for clarity):
+
+```
+  <category>
+    <id>xfce-desktop-environment</id>
+    <name>Xfce Desktop</name>
+...
+    <description>A lightweight desktop environment that works well on low end machines.</description>
+...
+    <grouplist>
+      <groupid>xfce-apps</groupid>
+      <groupid>xfce-desktop</groupid>
+      <groupid>xfce-extra-plugins</groupid>
+      <groupid>xfce-media</groupid>
+      <groupid>xfce-office</groupid>
+    </grouplist>
+  </category>
+```
+
+Installing a category or an environment will pull in all the packages in the
+listed groups, so another metric would be determining which the most popular
+packages are in environments or categories.
 
 [critical_path]:https://fedoraproject.org/wiki/Critical_path_package
 [fails_to_install_f44]:https://bugzilla.redhat.com/show_bug.cgi?id=2398098
