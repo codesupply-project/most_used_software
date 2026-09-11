@@ -107,6 +107,60 @@ a single version of Debian (or derivative). Debian popcon also does not contain
 the information from the metadata, so it still would need to be combined with
 the metadata.
 
+### Using the popcon data
+
+The latest version of the exported data **from all packages** can be accessed though the following URL:
+
+https://popcon.debian.org/by_inst
+
+To extract data **from a single package**, use the following formatted URL:
+
+```
+https://qa.debian.org/cgi-bin/popcon-data?packages=<package_name>&from_date=<YYYY-MM-DD>
+```
+
+Where: 
+* `<package_name>` is the name of the package.
+* `<YYYY-MM-DD>` is the from date in Year-Month-Day format.
+
+For example, to extract the data from the `lvm2` package (all history), the formatted URL looks like this:
+
+```
+https://qa.debian.org/cgi-bin/popcon-data?packages=lvm2;from_date=&to_date=
+```
+
+"From" and "To" dates can be also added using the `YYYY-MM-DD` format:
+
+```
+https://qa.debian.org/cgi-bin/popcon-data?packages=lvm2;from_date=2004-01-24;to_date=2026-09-01
+```
+
+#### Data format
+
+The exported data is a TSV file, listing the popularity information per package (one row per package). This is an extract of an actual exported data file:
+
+| **rank** | **name** | **inst** | **vote** | **old** | **recent** | **no-files** | **(maintainer)**            |
+|----------|----------|----------|----------|---------|------------|--------------|-----------------------------|
+| 1        | debconf  | 283740   | 267290   | 1287    | 15137      | 26           | (Debconf Developers)        |
+| 2        | dpkg     | 283739   | 257047   | 9322    | 17332      | 38           | (Dpkg Developers)           |
+| 3        | apt      | 283738   | 253149   | 13326   | 17217      | 46           | (Apt Development Team)      |
+| 4        | adduser  | 283737   | 198148   | 65676   | 19874      | 39           | (Debian Adduser Developers) |
+
+Where:
+
+* `<name>` is the package name
+* `<inst>` is the number of people who installed this package, which is the sum of:
+  * `<vote>` is the number of people who use this package regularly;
+  * `<old>` is the number of people who installed, but don't use this package regularly;
+  * `recent>` is the number of people who upgraded this package recently;
+  * `<no-files>` is the number of people whose entry didn't contain enough information (`atime` and `ctime` [1] were 0).
+
+[1] Aclaratory note about the meaning of `atime` and `ctime` parameters, from [Debian Manpage](debian_manpage):
+
+> The popularity-contest command gathers information about Debian packages installed on the system, and prints the name of the most recently used executable program in that package as well as its last-accessed time (atime) and last-attribute-changed time (ctime) to stdout.
+>
+> When aggregated with the output of popularity-contest from many other systems, this information is valuable because it can be used to determine which Debian packages are commonly installed, used, or installed and never used. This helps Debian maintainers make decisions such as which packages should be installed by default on new systems.
+
 
 [debian_repository]:https://wiki.debian.org/DebianRepository/Format
 [debian_versions]:https://en.wikipedia.org/wiki/Debian_release_version_history
@@ -115,3 +169,4 @@ the metadata.
 [priorities]:https://www.debian.org/doc/debian-policy/ch-archive.html#s-priorities
 [popcon]:https://popcon.debian.org/
 [popcon_faq]:https://popcon.debian.org/FAQ
+[debiab_manpage]:https://manpages.debian.org/testing/popularity-contest/popularity-contest.8.en.html
